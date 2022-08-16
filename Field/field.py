@@ -6,3 +6,7 @@ class Field:
         self.width = width
         self.height = height
         self.body = np.zeros((self.height, self.width))
+
+    def update_field(self, walls, player):
+        # will add this later
+        pass
