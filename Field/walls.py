@@ -17,7 +17,7 @@ class Wall:
         self.create_hole()
 
     def create_hole(self):
-        hole = np.zeros((self.height, self.hole_width))
+        # hole = np.zeros((self.height, self.hole_width))
         hole_pos = randint(0, self.width - self.hole_width)
         self.body[:, hole_pos:hole_pos+self.hole_width] = 0
 
