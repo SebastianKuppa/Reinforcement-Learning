@@ -26,3 +26,7 @@ class Player:
                   1: -1,
                   2: 1}
         direction = valdir[direction]
+        next_x = self.x + (direction*self.speed)
+        if not self.x+next_x > field.width and self.x+next_x < 0:
+            self.x = next_x
+            self.stamina -= 1
