@@ -16,12 +16,11 @@ class Player:
         self.max_stamina = 20
 
     def move(self, field, direction=0):
-        '''
-        Moves the player :
-         - No change          = 0
-         - left, if direction  = 1
-         - right, if direction = 2
-        '''
+        """
+        Moves Player left or right
+        :param field: The gaming field (np.array)
+        :param direction: Keyboard action
+        """
         valdir = {0: 0,
                   1: -1,
                   2: 1}
@@ -32,6 +31,10 @@ class Player:
             self.stamina -= 1
 
     def change_width(self, action):
+        """
+        Changes the players width with up or down keys
+        :param action: Keyboard input
+        """
         val2act = {0: 0,
                    3: -1,
                    4: 1}
