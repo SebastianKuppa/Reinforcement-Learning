@@ -17,10 +17,16 @@ class Wall:
         self.create_hole()
 
     def create_hole(self):
+        """
+        Creates a hole in the wall array
+        """
         # hole = np.zeros((self.height, self.hole_width))
         hole_pos = randint(0, self.width - self.hole_width)
         self.body[:, hole_pos:hole_pos+self.hole_width] = 0
 
     def move(self):
+        """
+        Moves the wall down in the field array
+        """
         self.y += self.speed
         self.out_of_range = True if ((self.y + self.height) > self.field.height) else False
