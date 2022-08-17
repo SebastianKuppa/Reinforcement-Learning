@@ -27,6 +27,17 @@ class Player:
                   2: 1}
         direction = valdir[direction]
         next_x = self.x + (direction*self.speed)
-        if not self.x+next_x > field.width and self.x+next_x < 0:
+        if not self.x+next_x > field.width or self.x+next_x < 0:
             self.x = next_x
             self.stamina -= 1
+
+    def change_width(self, action):
+        val2act = {0: 0,
+                   3: -1,
+                   4: 1}
+        action = val2act[action]
+        new_width = self.width + action
+        player_end = self.x + new_width
+        if self.max_width >= new_width > 0 and player_end <= self.max_width:
+            self.width = new_width
+            self.body = np.ones((self.height, self.width))*self.body_unit
