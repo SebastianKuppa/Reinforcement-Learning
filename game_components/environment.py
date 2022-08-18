@@ -4,6 +4,7 @@ import walls
 
 from random import randint
 from collections import deque
+import pygame
 
 class Environment:
     P_HEIGHT = 2  # player height
@@ -18,6 +19,7 @@ class Environment:
     WIDTH_MUL = 40  # pygame multiplier for drawing blocks
     WINDOW_HEIGHT = (F_HEIGHT + 1) * HEIGHT_MUL  # pygame window
     WINDOW_WIDTH = (WIDTH) * WIDTH_MUL  # pygame window
+    WALL_SPEED = 3
 
     ENVIRONMENT_SHAPE = (F_HEIGHT, WIDTH, 1)
     ACTION_SPACE = [0, 1, 2, 3, 4]
@@ -62,3 +64,97 @@ class Environment:
         observation = self.field.body / self.MAX_VAL
 
         return observation
+
+    def print_text(self, WINDOW=None, text_cords=(0,0), center=False,
+                   text="", color=(0,0,0), size=32):
+        pygame.init()
+        font = pygame.font.Font(name='freesansbold.ttf', size=size)
+        text_to_print = font.render(text, True, color=color)
+        textRect = text_to_print.get_rect()
+        if center:
+            textRect.center = text_cords
+        else:
+            textRect.x = text_cords[0]
+            textRect.y = text_cords[1]
+        WINDOW.blit(text_to_print, textRect)
+
+    def step(self, action):
+        global score_increased
+
+        self.frames_counter += 1
+        reward = 0
+
+        if action in [1, 2]:
+            self.player.move(field=self.field, direction=action)
+        elif action in [3, 4]:
+            self.player.change_width(action=action)
+
+        if self.frames_counter % self.WALL_SPEED == 0:
+            self.walls[-1].move()
+            self.frames_counter = 0
+
+        self.field.update_field(walls=self.walls, player=self.player)
+
+        if ((self.walls[-1].y) == (self.player.y + self.player.height)) and score_increased ==False:
+            reward += self.REWARD
+            self.score += self.REWARD
+            self.player.stamina += min(self.player.max_stamina, self.player.stamina+10)
+
+            score_increased = True
+
+            #  Lose Conditions :
+            # C1 : The player hits a wall
+            # C2 : Player's width was far thinner than hole's width
+            # C3 : Player fully consumed its stamina (energy)
+            lose_conds = [self.MAX_VAL in self.field.body,
+                          (self.player.y == self.walls[-1].y and
+                           self.player.width < self.walls[-1].hole_width-1),
+                          self.player.stamina <= 0]
+
+            if True in lose_conds:
+                self.game_over = True
+                reward = self.PUNISHMENT
+                return self.field.body/self.MAX_VAL, reward, self.game_over
+
+            if self.walls[-1].out_of_range:
+                self.walls[-1] = walls.Wall(height=self.W_HEIGHT, width=self.WIDTH,
+                                            hole_width=randint(self.MIN_H_WIDTH, self.MAX_H_WIDTH),
+                                            field=self.field)
+                score_increased = False
+
+            return self.field.body/self.MAX_VAL, reward, self.game_over
+
+    def render(self, WINDOW=None, human=False):
+        if human:
+            action = 0
+            events = pygame.event.get()
+            for event in events:
+                if event.type == pygame.QUIT:
+                    self.game_over = True
+                if event.type == pygame.KEYDOWN:
+                    if event.key == pygame.K_LEFT:
+                        action = 1
+                    if event.key == pygame.K_RIGHT:
+                        action = 2
+                    if event.key == pygame.K_UP:
+                        action = 4
+                    if event.key == pygame.K_DOWN:
+                        action = 3
+
+            _, reward, self.game_over = self.step(action=action)
+
+            WINDOW.fill(self.WHITE)
+            self.field.update_field(walls=self.walls, player=self.player)
+
+            for r in range(self.field.body.shape[0]):
+                for c in range(self.field.body.shape[1]):
+                    pygame.draw.rect(WINDOW,
+                                     self.val2color[self.field.body[r][c]],
+                                     (c*self.WIDTH_MUL, r*self.HEIGHT_MUL, self.WIDTH_MUL, self.HEIGHT_MUL))
+                self.print_text(WINDOW=WINDOW, text_cords=(self.WINDOW_WIDTH // 2, int(self.WINDOW_HEIGHT * 0.1)),
+                                text=str(self.score), color=self.RED, center=True)
+                self.print_text(WINDOW=WINDOW, text_cords=(0, int(self.WINDOW_HEIGHT * 0.9)),
+                                text=str(self.player.stamina), color=self.RED)
+
+                pygame.display.update()
+
