@@ -57,6 +57,8 @@ class Environment:
                                     width=p_width, x=randint(0, self.field.width-p_width),
                                     y=int(self.field.height*.7), speed=1)
         self.MAX_VAL = self.player.body_unit + w1.body_unit
-        # self.update_field
+        self.field.update_field(walls=self.walls, player=self.player)
 
-        return 0
+        observation = self.field.body / self.MAX_VAL
+
+        return observation
