@@ -12,7 +12,7 @@ class Wall:
         self.speed = speed
         self.field = field
         self.body_unit = 1
-        self.body = np.ones((self.height, self.width))*self.body_unit
+        self.body = np.ones(shape=(self.height, self.width))*self.body_unit
         self.out_of_range = False
         self.create_hole()
 

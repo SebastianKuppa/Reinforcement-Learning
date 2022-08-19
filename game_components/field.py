@@ -16,6 +16,6 @@ class Field:
                     self.body[wall.y:min(wall.y+wall.height, self.height), :] = wall.body
             # player
             self.body[player.y:player.y+player.height,
-                      player.x:player.x+player.width] = player.body
+                      player.x:player.x+player.width] += player.body
         except:
             pass

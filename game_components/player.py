@@ -26,8 +26,8 @@ class Player:
                   2: 1}
         direction = valdir[direction]
         next_x = self.x + (direction*self.speed)
-        if not self.x+next_x > field.width or self.x+next_x < 0:
-            self.x = next_x
+        if not (next_x + self.width > field.width or next_x < 0):
+            self.x += self.speed * direction
             self.stamina -= 1
 
     def change_width(self, action):

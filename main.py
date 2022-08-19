@@ -2,6 +2,7 @@ import pygame
 import game_components.environment as environment
 from time import sleep
 
+
 def main():
     env = environment.Environment()
 
@@ -13,7 +14,7 @@ def main():
     winning_score = 100
 
     while not win:
-        score_increased = False
+        environment.score_increased = False
         game_over = False
 
         _ = env.reset()
@@ -34,6 +35,7 @@ def main():
                           text=f"Game Over - Score : {env.score}", color=env.RED, center=True)
 
         pygame.display.update()
+        sleep(3)
 
 
 if __name__ == "__main__":
