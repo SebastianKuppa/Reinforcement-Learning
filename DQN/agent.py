@@ -1,5 +1,7 @@
 from collections import deque
 from keras.callbacks import TensorBoard
+import tensorflow as tf
+import os
 
 
 class Agent:
@@ -24,8 +26,32 @@ class Agent:
     def create_model(self, conv_list, dense_list):
         return True
 
+
 class ModifiedTensorBoard(TensorBoard):
     def __init__(self, name, **kwargs):
         super().__init__(**kwargs)
         self.step = 1
-        self.writer =
+        self.writer = tf.summary.create_file_writer(self.logdir)
+        self._log_writer_dir = os.path.join(self.log_dir, name)
+
+    def set_model(self, model):
+        pass
+
+    def on_epoch_end(self, epoch, logs=None):
+        self.update_stats(**logs)
+
+    def on_batch_end(self, batch, logs=None):
+        pass
+
+    def on_train_end(self, batch, logs=None):
+        pass
+
+    def update_stats(self, **stats):
+        self.write_logs(stats, self.step)
+
+    def _write_logs(self, logs, index):
+        with self.writer.as_default():
+            for name, value in logs.items():
+                tf.summary.scalar(name, value, step=index)
+                self.step += 1
+                self.writer.flush()
