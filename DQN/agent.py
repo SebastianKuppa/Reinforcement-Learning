@@ -72,6 +72,8 @@ class Agent:
                       metrics={'output': 'accuracy'})
         return model
 
+    # update replay memory with new step
+    # (observation space, action, reward, new observation space, done)
     def update_replay_memory(self, transition):
         self.replay_memory.append(transition)
 
