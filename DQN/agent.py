@@ -1,11 +1,14 @@
 from collections import deque
 from keras.layers import Dense, Dropout, Conv2D, MaxPooling2D, Activation, Flatten
 from keras.layers import Input, BatchNormalization, GlobalMaxPooling2D
+from keras.models import Sequential, Model
 from keras.callbacks import TensorBoard, ModelCheckpoint
+from keras.optimizers import Adam
 import tensorflow as tf
 import os
 import time
 
+import models_arch
 import constants as const
 
 PATH = ""
@@ -48,7 +51,26 @@ class Agent:
     def create_model(self, conv_list, dense_list):
         # init input layer with array of game environment
         input_layer = Input(shape=self.env.ENVIRONMENT_SHAPE)
+        # init 1. conv block
+        _ = self.conv_block(input_layer, conv_list[0], bn=False, pool=False)
+        # if there are more conv block in the arch, create them in for loop
+        if len(conv_list) > 1:
+            for c in conv_list[0]:
+                _ = self.conv_block(inp=_, filters=c)
+        # flatten last layer
+        _ = Flatten()(_)
 
+        # dense layers
+        for d in dense_list:
+            _ = Dense(units=d, activation='relu')(_)
+        # 5 layer outputs for the length of the possible action space
+        output = Dense(units=self.env.ACTION_SPACE_SIZE, activation='linear', name='output')(_)
+
+        model = Model(inputs=input_layer, outputs=[output])
+        model.compile(optimizer=Adam(lr=.001),
+                      loss={'output': 'mse'},
+                      metrics={'output': 'accuracy'})
+        return model
 
 class ModifiedTensorBoard(TensorBoard):
     def __init__(self, name, **kwargs):
