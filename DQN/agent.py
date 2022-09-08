@@ -72,6 +72,9 @@ class Agent:
                       metrics={'output': 'accuracy'})
         return model
 
+    def update_replay_memory(self, transition):
+        self.replay_memory.append(transition)
+
 class ModifiedTensorBoard(TensorBoard):
     def __init__(self, name, **kwargs):
         super().__init__(**kwargs)
