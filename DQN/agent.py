@@ -80,7 +80,7 @@ class Agent:
         self.replay_memory.append(transition)
 
     # train the network
-    def train(self, terminal_step, step):
+    def train(self, terminal_state, step):
         # wait for sufficient amount of replay memory
         if len(self.replay_memory) < const.MIN_REPLAY_MEMORY_SIZE:
             return
@@ -115,6 +115,24 @@ class Agent:
             # append to training data
             x.append(current_state)
             y.append(current_qs)
+
+        self.model.fit(x=np.array(x).reshape(-1, self.env.ENVIRONMENT_SHAPE),
+                       y=np.array(y),
+                       batch_size=models_arch.models_arch[0]["MINIBATCH_SIZE"],
+                       shuffle=False,
+                       callbacks=[self.tensorboard] if terminal_state else None)
+
+        # update counter
+        if terminal_state:
+            self.target_update_counter += 1
+
+        # update target model if counter reaches threshold
+        if self.target_update_counter >const.UPDATE_TARGET_EVERY:
+            self.target_model.set_weights(self.model.get_weights())
+            # reset target counter
+            self.target_update_counter = 0
+
+
 
 
 
