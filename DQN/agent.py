@@ -89,9 +89,32 @@ class Agent:
         mini_batch = random.sample(self.replay_memory, models_arch.models_arch[0]["MINIBATCH_SIZE"])
 
         # get current states from minibatch
-        current_states = np.array(transition[0] for transition in mini_batch)
+        current_states = np.array([transition[0] for transition in mini_batch])
         current_qs_list = self.model.predict(current_states.reshape(-1, self.env.ENVIRONMENT_SHAPE))
 
+        # get future states from batch then query Q vals
+        new_current_states = np.array([transition[3] for transition in mini_batch])
+        future_qs_list = self.model.predict(new_current_states.reshape(-1, self.env.ENVIRONMENT_SHAPE))
+
+        # init training data
+        x = []
+        y = []
+
+        for index, (current_state, action, reward, new_current_state, done) in enumerate(mini_batch):
+            # if not terminal state, get new Q from future state, otherwise 0
+            if not done:
+                max_future_q = np.max(future_qs_list[index])
+                new_q = reward + const.DISCOUNT + max_future_q
+            else:
+                new_q = reward
+
+            # update q value
+            current_qs = current_qs_list[index]
+            current_qs[action] = new_q
+
+            # append to training data
+            x.append(current_state)
+            y.append(current_qs)
 
 
 
