@@ -1,3 +1,4 @@
+import random
 from collections import deque
 from keras.layers import Dense, Dropout, Conv2D, MaxPooling2D, Activation, Flatten
 from keras.layers import Input, BatchNormalization, GlobalMaxPooling2D
@@ -5,6 +6,7 @@ from keras.models import Sequential, Model
 from keras.callbacks import TensorBoard, ModelCheckpoint
 from keras.optimizers import Adam
 import tensorflow as tf
+import numpy as np
 import os
 import time
 
@@ -76,6 +78,22 @@ class Agent:
     # (observation space, action, reward, new observation space, done)
     def update_replay_memory(self, transition):
         self.replay_memory.append(transition)
+
+    # train the network
+    def train(self, terminal_step, step):
+        # wait for sufficient amount of replay memory
+        if len(self.replay_memory) < const.MIN_REPLAY_MEMORY_SIZE:
+            return
+
+        # get mini replay batch
+        mini_batch = random.sample(self.replay_memory, models_arch.models_arch[0]["MINIBATCH_SIZE"])
+
+        # get current states from minibatch
+        current_states = np.array(transition[0] for transition in mini_batch)
+        current_qs_list = self.model.predict(current_states.reshape(-1, self.env.ENVIRONMENT_SHAPE))
+
+
+
 
 class ModifiedTensorBoard(TensorBoard):
     def __init__(self, name, **kwargs):
