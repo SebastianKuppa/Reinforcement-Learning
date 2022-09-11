@@ -127,10 +127,14 @@ class Agent:
             self.target_update_counter += 1
 
         # update target model if counter reaches threshold
-        if self.target_update_counter >const.UPDATE_TARGET_EVERY:
+        if self.target_update_counter > const.UPDATE_TARGET_EVERY:
             self.target_model.set_weights(self.model.get_weights())
             # reset target counter
             self.target_update_counter = 0
+
+    # get qs from current observation space (meaning environment state)
+    def get_qs(self, state):
+        return self.model.predict(state.reshape(-1, self.env.ENVIRONMENT_SHAPE))
 
 
 
