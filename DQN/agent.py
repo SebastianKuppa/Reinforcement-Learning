@@ -137,7 +137,12 @@ class Agent:
         return self.model.predict(state.reshape(-1, self.env.ENVIRONMENT_SHAPE))
 
 
-
+def safe_models_and_weight(agent, model_name, episode, max_reward, average_reward, min_reward):
+    checkpoint_name = f"{model_name} | Eps({episode}) | max({max_reward:_>7.2f}) | " \
+                      f"avg({average_reward:_>7.2f}) | min({min_reward:_>7.2f}).model"
+    agent.model.save(f'{PATH}models/{checkpoint_name}')
+    best_weights = agent.model.get_weights()
+    return best_weights
 
 
 class ModifiedTensorBoard(TensorBoard):
