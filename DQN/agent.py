@@ -137,6 +137,7 @@ class Agent:
         return self.model.predict(state.reshape(-1, self.env.ENVIRONMENT_SHAPE))
 
 
+# safe model and return model weights
 def safe_models_and_weight(agent, model_name, episode, max_reward, average_reward, min_reward):
     checkpoint_name = f"{model_name} | Eps({episode}) | max({max_reward:_>7.2f}) | " \
                       f"avg({average_reward:_>7.2f}) | min({min_reward:_>7.2f}).model"
@@ -173,3 +174,26 @@ class ModifiedTensorBoard(TensorBoard):
                 tf.summary.scalar(name, value, step=index)
                 self.step += 1
                 self.writer.flush()
+
+
+def grid_search():
+    for i, m in enumerate(models_arch.models_arch):
+        start_time = time.time()
+        MINIBATCH_SIZE = m["MINIBATCH_SIZE"]
+
+        # exploration settings
+        EF_Enabled = m["EF_Settings"]["EF_Enabled"]
+        MAX_EPSILON = 1
+        MIN_EPSILON = .001
+        if EF_Enabled:
+            FLUCTUATIONS = m["EF_Settings"]["FLUCTUATIONS"]
+            FLUCTUATE_EVERY = int(const.EPISODES/FLUCTUATIONS)
+            EPSILON_DECAY = MAX_EPSILON - (MAX_EPSILON/FLUCTUATE_EVERY)
+            epsilon = 1     # will decay
+        else:
+            EPSILON_DECAY = MAX_EPSILON - (MAX_EPSILON/(.8*const.EPISODES))
+            epsilon = 1     # will decay
+
+        # init average and score
+        best_average = -100
+        best_score = -100
