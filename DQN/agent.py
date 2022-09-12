@@ -1,5 +1,8 @@
 from random import randint, choice
 from collections import deque
+
+import pandas as pd
+import pygame
 from keras.layers import Dense, Dropout, Conv2D, MaxPooling2D, Activation, Flatten
 from keras.layers import Input, BatchNormalization, GlobalMaxPooling2D
 from keras.models import Sequential, Model
@@ -10,12 +13,25 @@ from tqdm import tqdm
 import numpy as np
 import os
 import time
+import random
 
 import models_arch
 import constants as const
 import game_components.environment
 
+random.seed(1)
+np.random.seed(1)
+tf.random.set_seed(1)
+
 PATH = ""
+# create model folder
+if not os.path.isdir(f'{PATH}models'):
+    os.makedirs(f'{PATH}models')
+# create results folder
+if not os.path.isdir(f'{PATH}results'):
+    os.makedirs(f'{PATH}results')
+
+pygame.init()
 
 
 class DQNAgent:
@@ -92,11 +108,11 @@ class DQNAgent:
 
         # get current states from minibatch
         current_states = np.array([transition[0] for transition in mini_batch])
-        current_qs_list = self.model.predict(current_states.reshape(-1, self.env.ENVIRONMENT_SHAPE))
+        current_qs_list = self.model.predict(current_states.reshape(-1, *self.env.ENVIRONMENT_SHAPE))
 
         # get future states from batch then query Q vals
         new_current_states = np.array([transition[3] for transition in mini_batch])
-        future_qs_list = self.model.predict(new_current_states.reshape(-1, self.env.ENVIRONMENT_SHAPE))
+        future_qs_list = self.model.predict(new_current_states.reshape(-1, *self.env.ENVIRONMENT_SHAPE))
 
         # init training data
         x = []
@@ -118,7 +134,7 @@ class DQNAgent:
             x.append(current_state)
             y.append(current_qs)
 
-        self.model.fit(x=np.array(x).reshape(-1, self.env.ENVIRONMENT_SHAPE),
+        self.model.fit(x=np.array(x).reshape(-1, *self.env.ENVIRONMENT_SHAPE),
                        y=np.array(y),
                        batch_size=models_arch.models_arch[0]["MINIBATCH_SIZE"],
                        shuffle=False,
@@ -136,7 +152,7 @@ class DQNAgent:
 
     # get qs from current observation space (meaning environment state)
     def get_qs(self, state):
-        return self.model.predict(state.reshape(-1, self.env.ENVIRONMENT_SHAPE))
+        return self.model.predict(state.reshape(-1, *self.env.ENVIRONMENT_SHAPE))
 
 
 # safe model and return model weights
@@ -149,26 +165,38 @@ def safe_models_and_weight(agent, model_name, episode, max_reward, average_rewar
 
 
 class ModifiedTensorBoard(TensorBoard):
+    # Overriding init to set initial step and writer (we want one log file for all .fit() calls)
     def __init__(self, name, **kwargs):
         super().__init__(**kwargs)
         self.step = 1
-        self.writer = tf.summary.create_file_writer(self.logdir)
-        self._log_writer_dir = os.path.join(self.log_dir, name)
+        self.writer = tf.summary.create_file_writer(self.log_dir)
+        self._log_write_dir = os.path.join(self.log_dir, name)
 
+    # Overriding this method to stop creating default log writer
     def set_model(self, model):
         pass
 
+    # Overrided, saves logs with our step number
+    # (otherwise every .fit() will start writing from 0th step)
     def on_epoch_end(self, epoch, logs=None):
         self.update_stats(**logs)
 
+    # Overrided
+    # We train for one batch only, no need to save anything at epoch end
     def on_batch_end(self, batch, logs=None):
         pass
 
-    def on_train_end(self, batch, logs=None):
+    # Overrided, so won't close writer
+    def on_train_end(self, _):
         pass
 
+    def on_train_batch_end(self, batch, logs=None):
+        pass
+
+    # Custom method for saving own metrics
+    # Creates writer, writes custom metrics and closes writer
     def update_stats(self, **stats):
-        self.write_logs(stats, self.step)
+        self._write_logs(stats, self.step)
 
     def _write_logs(self, logs, index):
         with self.writer.as_default():
@@ -277,3 +305,79 @@ def grid_search():
             ep_rewards.append(episode_reward)
 
             if not episode % const.AGGREGATE_STATS_EVERY:
+                average_reward = \
+                    sum(ep_rewards[-const.AGGREGATE_STATS_EVERY:])/len(ep_rewards[const.AGGREGATE_STATS_EVERY:])
+                min_reward = min(ep_rewards[-const.AGGREGATE_STATS_EVERY:])
+                max_reward = max(ep_rewards[-const.AGGREGATE_STATS_EVERY:])
+                agent.tensorboard.update_stats(reward_avg=average_reward,
+                                               reward_min=min_reward,
+                                               reward_max=max_reward,
+                                               epsilon=epsilon)
+                # save models when avg is >= set value
+                if not episode % const.SAVE_MODEL_EVERY:
+                    _ = safe_models_and_weight(agent, MODEL_NAME, episode, max_reward, average_reward, min_reward)
+                if average_reward > best_average:
+                    best_average = average_reward
+                    # update ECC vars
+                    avg_reward_info.append([episode, best_average, epsilon])
+                    eps_np_inc_counter = 0
+                    # save agent
+                    best_weights[0] = safe_models_and_weight(agent,
+                                                             MODEL_NAME,
+                                                             episode,
+                                                             max_reward,
+                                                             average_reward,
+                                                             min_reward)
+                if ECC_Enabled and eps_np_inc_counter >= MAX_EPS_NO_INC:
+                    epsilon = avg_reward_info[-1][2]
+                    eps_np_inc_counter = 0
+            if episode_reward > best_score:
+                try:
+                    best_score = episode_reward
+                    max_reward_info.append([episode, best_score, epsilon])
+                    best_weights[0] = safe_models_and_weight(agent,
+                                                             MODEL_NAME,
+                                                             episode,
+                                                             max_reward,
+                                                             average_reward,
+                                                             min_reward)
+                except:
+                    pass
+
+            # epsilon decay
+            if epsilon > MIN_EPSILON:
+                epsilon *= EPSILON_DECAY
+                epsilon = max(MIN_EPSILON, epsilon)
+            # epsilon fluctuation
+            if EF_Enabled:
+                if not episode % FLUCTUATE_EVERY:
+                    epsilon = MAX_EPSILON
+
+        end_time = time.time()
+        total_train_time_sec = round((end_time - start_time))
+        total_train_time_min = round((end_time - start_time)/60, 2)
+        time_per_episode_sec = round(total_train_time_sec/const.EPISODES, 3)
+
+        # avg reward
+        average_reward = round(sum(ep_rewards)/len(ep_rewards), 2)
+
+        # Update Results DataFrames:
+        res = res.append(
+            {"Model Name": MODEL_NAME, "Convolution Layers": m["conv_list"], "Dense Layers": m["dense_list"],
+             "Batch Size": m["MINIBATCH_SIZE"], "ECC": m["ECC_Settings"], "EF": m["EF_Settings"],
+             "Best Only": m["best_only"], "Average Reward": average_reward,
+             "Best Average": avg_reward_info[-1][1], "Epsilon 4 Best Average": avg_reward_info[-1][2],
+             "Best Average On": avg_reward_info[-1][0], "Max Reward": max_reward_info[-1][1],
+             "Epsilon 4 Max Reward": max_reward_info[-1][2], "Max Reward On": max_reward_info[-1][0],
+             "Total Training Time (min)": total_train_time_min, "Time Per Episode (sec)": time_per_episode_sec}
+            , ignore_index=True)
+        res = res.sort_values(by="Best Average")
+
+        avg_df = pd.DataFrame(data=avg_reward_info, columns=["Episode", "Average Reward", "Epsilon"])
+        max_df = pd.DataFrame(data=max_reward_info, columns=["Episode", "Max Reward", "Epsilon"])
+
+        # save dataframes
+        res.to_csv(f'{PATH}results/Results.csv')
+        avg_df.to_csv(f'{PATH}results/{MODEL_NAME}-Results-Avg.csv')
+        max_df.to_csv(f'{PATH}results/{MODEL_NAME}-Results-Max.csv')
+
