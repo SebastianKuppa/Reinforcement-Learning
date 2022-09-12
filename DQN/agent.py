@@ -1,4 +1,4 @@
-import random
+from random import randint, choice
 from collections import deque
 from keras.layers import Dense, Dropout, Conv2D, MaxPooling2D, Activation, Flatten
 from keras.layers import Input, BatchNormalization, GlobalMaxPooling2D
@@ -6,6 +6,7 @@ from keras.models import Sequential, Model
 from keras.callbacks import TensorBoard, ModelCheckpoint
 from keras.optimizers import Adam
 import tensorflow as tf
+from tqdm import tqdm
 import numpy as np
 import os
 import time
@@ -216,4 +217,52 @@ def grid_search():
 
         env.MOVE_WALL_EVERY = 1
 
-        agent = DQNAgent()
+        agent = DQNAgent(name=f"M{i}",
+                         env=env,
+                         conv_list=m["conv_list"],
+                         dense_list=m["dense_list"],
+                         util_list=m["util_list"])
+        MODEL_NAME = agent.name
+
+        best_weights = [agent.model.get_weights()]
+
+        # Uncomment these two lines if you want to show preview on your screen
+        # WINDOW          = pygame.display.set_mode((env.WINDOW_WIDTH, env.WINDOW_HEIGHT))
+        # clock           = pygame.time.Clock()
+
+        for episode in tqdm(range(1, const.EPISODES+1), ascii=True, unit="episodes"):
+            if m["best_only"]:
+                agent.model.set_weights(best_weights[0])
+
+            score_increased = False
+            # update tensorboard
+            agent.tensorboard.step = episode
+
+            # restart episode values
+            episode_reward = 0
+            step = 1
+            action = 0
+
+            # reset environment and get values
+            current_state = env.reset()
+            game_over = env.game_over
+
+            while not game_over:
+                if np.random.random() > epsilon:
+                    # get q action
+                    action = np.argmax(agent.get_qs(current_state))
+                else:
+                    # rnd action
+                    action = choice(env.ACTION_SPACE)
+
+                new_state, reward, game_over = env.step(action)
+
+                episode_reward += reward
+
+                # Uncomment the next block if you want to show preview on your screen
+                # if SHOW_PREVIEW and not episode % SHOW_EVERY:
+                #     clock.tick(27)
+                #     env.render(WINDOW)
+
+                agent.update_replay_memory((current_state, action, reward, new_state, game_over))
+                agent.train(game_over, step)
