@@ -12,11 +12,12 @@ import time
 
 import models_arch
 import constants as const
+import game_components.environment
 
 PATH = ""
 
 
-class Agent:
+class DQNAgent:
     def __init__(self, name, env, conv_list, dense_list, util_list):
         self.env = env
         self.conv_list = conv_list
@@ -197,3 +198,22 @@ def grid_search():
         # init average and score
         best_average = -100
         best_score = -100
+
+        ECC_Enabled = m["ECC_Settings"]["ECC_Enabled"]
+        avg_reward_info = [[1, best_average, epsilon]]
+        max_reward_info = [[1, best_score, epsilon]]
+
+        if ECC_Enabled:
+            MAX_EPS_NO_INC = m["ECC_Settings"]["MAX_EPS_NO_INC"]
+
+        # episodes without increment reward
+        eps_np_inc_counter = 0
+
+        ep_rewards = [best_average]
+
+        # init environment
+        env = game_components.environment.Environment()
+
+        env.MOVE_WALL_EVERY = 1
+
+        agent = DQNAgent()
