@@ -266,3 +266,14 @@ def grid_search():
 
                 agent.update_replay_memory((current_state, action, reward, new_state, game_over))
                 agent.train(game_over, step)
+
+                current_state = new_state
+                step += 1
+
+            if ECC_Enabled:
+                eps_np_inc_counter += 1
+
+            # append episode reward
+            ep_rewards.append(episode_reward)
+
+            if not episode % const.AGGREGATE_STATS_EVERY:
