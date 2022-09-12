@@ -23,6 +23,7 @@ random.seed(1)
 np.random.seed(1)
 tf.random.set_seed(1)
 
+MINIBATCH_SIZE = 0
 PATH = ""
 # create model folder
 if not os.path.isdir(f'{PATH}models'):
@@ -50,7 +51,7 @@ class DQNAgent:
         self.replay_memory = deque(maxlen=const.REPLAY_MEMORY_SIZE)
 
         # init tensorboard for analysis
-        self.tensorboard = ModifiedTensorBoard(name, log_dir="{}logs/{}-{}".format(PATH, name, int(time.time())))
+        self.tensorboard = ModifiedTensorBoard(log_dir="{}logs/{}-{}".format(PATH, name, int(time.time())))
 
         # counter for target network update cycle
         self.target_update_counter = 0
@@ -136,9 +137,8 @@ class DQNAgent:
 
         self.model.fit(x=np.array(x).reshape(-1, *self.env.ENVIRONMENT_SHAPE),
                        y=np.array(y),
-                       batch_size=models_arch.models_arch[0]["MINIBATCH_SIZE"],
-                       shuffle=False,
-                       callbacks=[self.tensorboard] if terminal_state else None)
+                       batch_size=MINIBATCH_SIZE, verbose=0,
+                       shuffle=False, callbacks=[self.tensorboard] if terminal_state else None)
 
         # update counter
         if terminal_state:
@@ -165,44 +165,36 @@ def safe_models_and_weight(agent, model_name, episode, max_reward, average_rewar
 
 
 class ModifiedTensorBoard(TensorBoard):
-    # Overriding init to set initial step and writer (we want one log file for all .fit() calls)
-    def __init__(self, name, **kwargs):
+    def __init__(self, **kwargs):
         super().__init__(**kwargs)
         self.step = 1
         self.writer = tf.summary.create_file_writer(self.log_dir)
-        self._log_write_dir = os.path.join(self.log_dir, name)
+        self._log_write_dir = self.log_dir
 
-    # Overriding this method to stop creating default log writer
     def set_model(self, model):
-        pass
+        self.model = model
 
-    # Overrided, saves logs with our step number
-    # (otherwise every .fit() will start writing from 0th step)
+        self._train_dir = os.path.join(self._log_write_dir, 'train')
+        self._train_step = self.model._train_counter
+
+        self._val_dir = os.path.join(self._log_write_dir, 'validation')
+        self._val_step = self.model._test_counter
+
+        self._should_write_train_graph = False
+
     def on_epoch_end(self, epoch, logs=None):
         self.update_stats(**logs)
 
-    # Overrided
-    # We train for one batch only, no need to save anything at epoch end
     def on_batch_end(self, batch, logs=None):
         pass
 
-    # Overrided, so won't close writer
     def on_train_end(self, _):
         pass
 
-    def on_train_batch_end(self, batch, logs=None):
-        pass
-
-    # Custom method for saving own metrics
-    # Creates writer, writes custom metrics and closes writer
     def update_stats(self, **stats):
-        self._write_logs(stats, self.step)
-
-    def _write_logs(self, logs, index):
         with self.writer.as_default():
-            for name, value in logs.items():
-                tf.summary.scalar(name, value, step=index)
-                self.step += 1
+            for key, value in stats.items():
+                tf.summary.scalar(key, value, step = self.step)
                 self.writer.flush()
 
 
